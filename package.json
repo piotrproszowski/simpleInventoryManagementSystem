@@ -1,0 +1,20 @@
+{
+  "name": "coffee-mug",
+  "version": "1.0.0",
+  "description": "Simple Inventory Management System",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "npx tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
