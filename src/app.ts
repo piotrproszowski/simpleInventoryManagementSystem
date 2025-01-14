@@ -1,17 +1,28 @@
 import express from "express";
 import dotenv from "dotenv";
+import { dbConnections } from "./infrastructure/database/mongodb";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(express.json());
+async function startServer(): Promise<void> {
+  try {
+    await dbConnections.initialize();
 
-app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
-});
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+startServer();
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled rejection:", error);
+  process.exit(1);
 });
