@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { rabbitMQ } from "./infrastructure/messaging/rabbitmq";
 import { dbConnections } from "./infrastructure/database/mongodb";
+import router from "./api/routes";
 
 dotenv.config();
 
@@ -12,6 +13,8 @@ async function startServer(): Promise<void> {
   try {
     await dbConnections.initialize();
     await rabbitMQ.initialize();
+    app.use(express.json());
+    app.use("/api/v1", router);
 
     app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
