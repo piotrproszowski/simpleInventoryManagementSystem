@@ -1,0 +1,101 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT:-3000}
+      - MONGODB_WRITE_URI=mongodb://${MONGO_WRITE_USER}:${MONGO_WRITE_PASSWORD}@mongodb-write:${MONGO_WRITE_PORT}/${MONGO_WRITE_DB}?authSource=admin
+      - MONGODB_READ_URI=mongodb://${MONGO_READ_USER}:${MONGO_READ_PASSWORD}@mongodb-read:${MONGO_READ_PORT}/${MONGO_READ_DB}?authSource=admin
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:${RABBITMQ_PORT}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+    depends_on:
+      mongodb-write:
+        condition: service_healthy
+      mongodb-read:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - inventory-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    networks:
+      - inventory-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  mongodb-write:
+    image: mongo:latest
+    container_name: mongodb-write
+    restart: unless-stopped
+    ports:
+      - "${MONGO_WRITE_PORT:-27017}:27017"
+    volumes:
+      - mongodb-write-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_WRITE_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_WRITE_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_WRITE_DB}
+    networks:
+      - inventory-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  mongodb-read:
+    image: mongo:latest
+    container_name: mongodb-read
+    restart: unless-stopped
+    ports:
+      - "${MONGO_READ_PORT:-27018}:27017"
+    volumes:
+      - mongodb-read-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_READ_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_READ_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_READ_DB}
+    networks:
+      - inventory-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  rabbitmq-data:
+    name: rabbitmq-data
+  mongodb-write-data:
+    name: mongodb-write-data
+  mongodb-read-data:
+    name: mongodb-read-data
+
+networks:
+  inventory-network:
+    name: inventory-network
+    driver: bridge
