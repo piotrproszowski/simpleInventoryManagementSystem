@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import { rabbitMQ } from "./infrastructure/messaging/rabbitmq";
 import { dbConnections } from "./infrastructure/database/mongodb";
 
 dotenv.config();
@@ -10,6 +11,7 @@ const port = process.env.PORT || 3000;
 async function startServer(): Promise<void> {
   try {
     await dbConnections.initialize();
+    await rabbitMQ.initialize();
 
     app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
