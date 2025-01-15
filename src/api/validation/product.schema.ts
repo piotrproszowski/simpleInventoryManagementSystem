@@ -23,6 +23,9 @@ export const createProductSchema = Joi.object({
 });
 
 export const updateStockSchema = Joi.object({
+  id: Joi.string().required().messages({
+    "string.empty": "Product ID is required",
+  }),
   quantity: Joi.number().required().messages({
     "number.base": "Quantity must be a number",
     "any.required": "Quantity is required",
