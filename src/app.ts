@@ -1,18 +1,18 @@
-import express from "express";
-import dotenv from "dotenv";
+// src/app.ts
+import express, { Express } from "express";
+import { dbManager } from "./infrastructure/database/connection-manager";
 import { rabbitMQ } from "./infrastructure/messaging/rabbitmq";
-import { dbConnections } from "./infrastructure/database/mongodb";
 import router from "./api/routes";
 
-dotenv.config();
-
-const app = express();
+const app: Express = express();
 const port = process.env.PORT || 3000;
 
 async function startServer(): Promise<void> {
   try {
-    await dbConnections.initialize();
+    await dbManager.initializeConnections();
+
     await rabbitMQ.initialize();
+
     app.use(express.json());
     app.use("/api/v1", router);
 
@@ -25,9 +25,16 @@ async function startServer(): Promise<void> {
   }
 }
 
-startServer();
-
-process.on("unhandledRejection", (error) => {
-  console.error("Unhandled rejection:", error);
+process.on("uncaughtException", (error: Error) => {
+  console.error("Uncaught Exception:", error);
   process.exit(1);
 });
+
+process.on("unhandledRejection", (reason: unknown) => {
+  console.error("Unhandled Rejection:", reason);
+  process.exit(1);
+});
+
+startServer();
+
+export default app;
