@@ -1,7 +1,5 @@
-// src/infrastructure/database/mongodb.ts
 import { Connection } from "mongoose";
 import { EventEmitter } from "events";
-import config from "../config";
 import { dbManager } from "./connection-manager";
 
 export class MongoDBConnection extends EventEmitter {

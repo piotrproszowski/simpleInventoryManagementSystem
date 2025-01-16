@@ -3,7 +3,7 @@ import { EntityId } from "../../../shared/utils/id-generator";
 
 export interface BaseModel extends Document {
   _id: EntityId;
-  id: EntityId; // virtual getter
+  id: EntityId;
   createdAt: Date;
   updatedAt: Date;
   version: number;

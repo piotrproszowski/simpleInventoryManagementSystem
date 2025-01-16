@@ -1,4 +1,3 @@
-// src/app.ts
 import express, { Express } from "express";
 import { dbManager } from "./infrastructure/database/connection-manager";
 import { rabbitMQ } from "./infrastructure/messaging/rabbitmq";
