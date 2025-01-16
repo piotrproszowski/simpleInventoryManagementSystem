@@ -1,6 +1,7 @@
-import { Schema, model } from "mongoose";
-import { BaseModel, BaseEvent } from "./base.model";
-import { IdGenerator, EntityId } from "../../../shared/utils/id-generator";
+import { Schema } from "mongoose";
+import { dbManager } from "../../../infrastructure/database/connection-manager";
+import { EntityId, IdGenerator } from "../../../shared/utils/id-generator";
+import { BaseEvent, BaseModel } from "./base.model";
 
 export enum OrderStatus {
   PENDING = "PENDING",
@@ -109,26 +110,6 @@ const orderSchema = new Schema<IOrder>(
     id: true,
   },
 );
-
-orderSchema.index({ createdAt: -1 });
-orderSchema.index({ status: 1 });
-orderSchema.index({ customerId: 1, createdAt: -1 });
-
-orderSchema.pre("save", function (next) {
-  if (this.isModified("products")) {
-    this.totalAmount = this.products.reduce(
-      (total, product) => total + product.price * product.quantity,
-      0,
-    );
-  }
-  if (!this._id) {
-    this._id = IdGenerator.generate();
-  }
-  next();
-});
-
-orderSchema.virtual("id").get(function () {
-  return this._id;
-});
-
-export const OrderModel = model<IOrder>("Order", orderSchema);
+export const OrderModel = dbManager
+  .getWriteConnection()
+  .model<IOrder>("Order", orderSchema);

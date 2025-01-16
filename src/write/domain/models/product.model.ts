@@ -1,6 +1,7 @@
-import { Schema, model } from "mongoose";
-import { BaseModel, BaseEvent } from "./base.model";
-import { IdGenerator, EntityId } from "../../../shared/utils/id-generator";
+import { Schema, Document } from "mongoose";
+import { dbManager } from "../../../infrastructure/database/connection-manager";
+import { IdGenerator } from "../../../shared/utils/id-generator";
+import { BaseModel } from "./base.model";
 
 export interface IProduct extends BaseModel {
   name: string;
@@ -10,29 +11,11 @@ export interface IProduct extends BaseModel {
   isActive: boolean;
 }
 
-export interface ProductCreatedEvent extends BaseEvent {
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-}
-
-export interface StockUpdatedEvent extends BaseEvent {
-  productId: EntityId;
-  previousStock: number;
-  currentStock: number;
-  adjustment: number;
-}
-
 const productSchema = new Schema<IProduct>(
   {
     _id: {
       type: String,
       default: () => IdGenerator.generate(),
-      validate: {
-        validator: (v: string) => IdGenerator.isValid(v),
-        message: "Invalid UUID format",
-      },
     },
     name: {
       type: String,
@@ -72,25 +55,25 @@ const productSchema = new Schema<IProduct>(
     versionKey: "version",
     _id: false,
     id: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_, ret) => {
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
   },
 );
-
-productSchema.index({ name: 1 });
-productSchema.index({ price: 1 });
-productSchema.index({ stock: 1 });
-
-productSchema.pre("save", function (next) {
-  if (this.stock < 0) {
-    next(new Error("Stock cannot be negative"));
-  }
-  if (!this._id) {
-    this._id = IdGenerator.generate();
-  }
-  next();
-});
 
 productSchema.virtual("id").get(function () {
   return this._id;
 });
 
-export const ProductModel = model<IProduct>("Product", productSchema);
+export const ProductModel = dbManager
+  .getWriteConnection()
+  .model<IProduct>("Product", productSchema);
+
+export type CreateProductDTO = Omit<IProduct, keyof BaseModel>;
+
+export type UpdateProductDTO = Partial<CreateProductDTO>;
