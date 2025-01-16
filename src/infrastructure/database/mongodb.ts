@@ -1,62 +1,52 @@
-import { Connection } from "mongoose";
-import { EventEmitter } from "events";
-import { dbManager } from "./connection-manager";
+import { MongoClient, Db } from "mongodb";
+import { config } from "../config";
+import { Logger } from "../../shared/logger";
 
-export class MongoDBConnection extends EventEmitter {
-  private readonly connectionName: string;
-  private readonly maxRetries: number = 5;
-  private retryCount: number = 0;
-  private readonly retryInterval: number = 5000;
+export class MongoDB {
+  private writeClient: MongoClient | null = null;
+  private readClient: MongoClient | null = null;
+  private writeDb: Db | null = null;
+  private readDb: Db | null = null;
+  private readonly logger = new Logger(MongoDB.name);
 
-  constructor(connectionName: string) {
-    super();
-    this.connectionName = connectionName;
-  }
-
-  public getConnection(): Connection {
-    return this.connectionName === "Write"
-      ? dbManager.getWriteConnection()
-      : dbManager.getReadConnection();
-  }
-
-  public isConnected(): boolean {
+  async connect(): Promise<void> {
     try {
-      const connection = this.getConnection();
-      return connection?.readyState === 1;
-    } catch {
-      return false;
+      this.writeClient = new MongoClient(config.mongodb.write.uri);
+      this.readClient = new MongoClient(config.mongodb.read.uri);
+
+      await Promise.all([
+        this.writeClient.connect(),
+        this.readClient.connect(),
+      ]);
+
+      this.writeDb = this.writeClient.db(config.mongodb.write.database);
+      this.readDb = this.readClient.db(config.mongodb.read.database);
+
+      this.logger.info("MongoDB connections established");
+    } catch (error) {
+      this.logger.error("Failed to connect to MongoDB:", error);
+      throw error;
     }
+  }
+
+  getWriteDb(): Db {
+    if (!this.writeDb) {
+      throw new Error("Write MongoDB not connected");
+    }
+    return this.writeDb;
+  }
+
+  getReadDb(): Db {
+    if (!this.readDb) {
+      throw new Error("Read MongoDB not connected");
+    }
+    return this.readDb;
+  }
+
+  async close(): Promise<void> {
+    if (this.writeClient) await this.writeClient.close();
+    if (this.readClient) await this.readClient.close();
   }
 }
 
-class DatabaseConnections {
-  private static instance: DatabaseConnections;
-  private readonly writeConnection: MongoDBConnection;
-  private readonly readConnection: MongoDBConnection;
-
-  private constructor() {
-    this.writeConnection = new MongoDBConnection("Write");
-    this.readConnection = new MongoDBConnection("Read");
-  }
-
-  public static getInstance(): DatabaseConnections {
-    if (!DatabaseConnections.instance) {
-      DatabaseConnections.instance = new DatabaseConnections();
-    }
-    return DatabaseConnections.instance;
-  }
-
-  public getWriteConnection(): MongoDBConnection {
-    return this.writeConnection;
-  }
-
-  public getReadConnection(): MongoDBConnection {
-    return this.readConnection;
-  }
-
-  public async initialize(): Promise<void> {
-    await dbManager.initializeConnections();
-  }
-}
-
-export const dbConnections = DatabaseConnections.getInstance();
+export const mongodb = new MongoDB();

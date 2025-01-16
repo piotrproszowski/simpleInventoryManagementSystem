@@ -1,111 +1,41 @@
 import mongoose, { Connection } from "mongoose";
-import config from "../config";
-import { EventEmitter } from "events";
+import { config } from "../config";
+import { Logger } from "../../shared/logger";
 
-export class DatabaseConnectionManager extends EventEmitter {
-  private static instance: DatabaseConnectionManager;
-  private writeConnection: Connection | null = null;
-  private readConnection: Connection | null = null;
+export class DatabaseConnection {
+  private connection?: Connection;
+  private readonly logger = new Logger(DatabaseConnection.name);
 
-  private constructor() {
-    super();
-    this.handleProcessTermination();
-  }
-
-  public static getInstance(): DatabaseConnectionManager {
-    if (!DatabaseConnectionManager.instance) {
-      DatabaseConnectionManager.instance = new DatabaseConnectionManager();
-    }
-    return DatabaseConnectionManager.instance;
-  }
-
-  private getConnectionOptions() {
-    return {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-    };
-  }
-
-  public async initializeConnections(): Promise<void> {
+  async connect(): Promise<void> {
     try {
-      if (!config.mongodb.writeUri || !config.mongodb.readUri) {
-        throw new Error("MongoDB URIs not provided");
-      }
+      await mongoose.connect(config.mongodb.uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
 
-      [this.writeConnection, this.readConnection] = await Promise.all([
-        this.createConnection(config.mongodb.writeUri, "Write"),
-        this.createConnection(config.mongodb.readUri, "Read"),
-      ]);
+      this.connection = mongoose.connection;
+      this.logger.info("Connected to MongoDB");
 
-      this.emit("connected");
+      this.setupErrorHandlers();
     } catch (error) {
-      this.emit("error", error);
+      this.logger.error("MongoDB connection error:", error);
       throw error;
     }
   }
 
-  private async createConnection(
-    uri: string,
-    name: string,
-  ): Promise<Connection> {
-    try {
-      const connection = await mongoose.createConnection(
-        uri,
-        this.getConnectionOptions(),
-      );
+  private setupErrorHandlers(): void {
+    this.connection?.on("error", (error: Error) => {
+      this.logger.error("MongoDB error:", error);
+    });
 
-      connection.on("error", (error) => {
-        console.error(`${name} DB Error:`, error);
-        this.emit("error", error);
-      });
-
-      connection.on("disconnected", () => {
-        console.warn(`${name} DB disconnected. Attempting to reconnect...`);
-        this.emit("disconnected", name);
-      });
-
-      console.log(`${name} database connected successfully`);
-      return connection;
-    } catch (error) {
-      console.error(`${name} DB Connection Error:`, error);
-      throw error;
-    }
+    this.connection?.on("disconnected", () => {
+      this.logger.warn("MongoDB disconnected");
+    });
   }
 
-  private handleProcessTermination(): void {
-    const closeConnections = async () => {
-      try {
-        await Promise.all([
-          this.writeConnection?.close(),
-          this.readConnection?.close(),
-        ]);
-        console.log("Database connections closed.");
-        process.exit(0);
-      } catch (error) {
-        console.error("Error closing database connections:", error);
-        process.exit(1);
-      }
-    };
-
-    process.on("SIGINT", closeConnections);
-    process.on("SIGTERM", closeConnections);
-  }
-
-  public getWriteConnection(): Connection {
-    if (!this.writeConnection) {
-      throw new Error("Write connection not initialized");
-    }
-    return this.writeConnection;
-  }
-
-  public getReadConnection(): Connection {
-    if (!this.readConnection) {
-      throw new Error("Read connection not initialized");
-    }
-    return this.readConnection;
+  async close(): Promise<void> {
+    await mongoose.disconnect();
   }
 }
 
-export const dbManager = DatabaseConnectionManager.getInstance();
+export const mongodb = new DatabaseConnection();
