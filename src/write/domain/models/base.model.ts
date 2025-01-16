@@ -1,27 +1,26 @@
-import { Document } from "mongoose";
-import { EntityId } from "../../../shared/utils/id-generator";
+import { Schema, model, Document, Model } from "mongoose";
 
-export interface BaseModel extends Document {
-  _id: EntityId;
-  id: EntityId;
+export interface BaseDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
-  version: number;
-  toJSON(): Record<string, any>;
 }
 
-export interface BaseEvent {
-  id: EntityId;
-  aggregateId: EntityId;
-  timestamp: Date;
-  version: number;
-  eventType: string;
+export interface BaseModel<T extends BaseDocument> extends Model<T> {
+  findByIdOrThrow(id: string): Promise<T>;
 }
 
-export interface BaseAggregate {
-  id: EntityId;
-  version: number;
-}
-
-export type AggregateId = EntityId;
-export type EventId = EntityId;
+export const baseSchema = new Schema(
+  {
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_doc: any, ret: any) => {
+        delete ret.__v;
+        return ret;
+      },
+    },
+  },
+);
