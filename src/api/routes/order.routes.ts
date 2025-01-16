@@ -1,12 +1,9 @@
 import { Router } from "express";
-import { OrderController } from "../controllers/order.controller";
-import { validate } from "../middleware/validation";
-import { createOrderSchema, getOrderSchema } from "../validation/order.schema";
 
-const route = Router();
+const router = Router();
 
-route.post("/", validate(createOrderSchema), OrderController.createOrder);
+// TODO: Implement order routes
+// router.post("/", orderController.create);
+// router.get("/", orderController.getAll);
 
-route.get("/:id", validate(getOrderSchema), OrderController.getOrder);
-
-export default route;
+export { router as orderRoutes };
