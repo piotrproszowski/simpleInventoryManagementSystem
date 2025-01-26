@@ -1,17 +1,32 @@
-import express from "express";
-import dotenv from "dotenv";
+import { config } from "./infrastructure/config";
+import { app } from "./api/app";
+import { Logger } from "./shared/logger";
+import { mongodb } from "./infrastructure/database/mongodb";
 
-dotenv.config();
+const logger = new Logger("Server");
 
-const app = express();
-const port = process.env.PORT || 3000;
+async function startServer() {
+  try {
+    await mongodb.connect();
+    logger.info("Connected to MongoDB");
 
-app.use(express.json());
+    app.listen(config.port, () => {
+      logger.info(`Server is running on port ${config.port}`);
+    });
+  } catch (error) {
+    logger.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
 
-app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
-});
+if (require.main === module) {
+  startServer();
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+  process.on("SIGTERM", async () => {
+    logger.info("SIGTERM received. Shutting down gracefully");
+    await mongodb.close();
+    process.exit(0);
+  });
+}
+
+export { app };

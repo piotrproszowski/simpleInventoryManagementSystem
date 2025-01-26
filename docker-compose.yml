@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_WRITE_URI=mongodb://mongodb-write:27017/inventory_write
+      - MONGODB_READ_URI=mongodb://mongodb-read:27017/inventory_read
+      - RABBITMQ_URI=amqp://rabbitmq:5672
+    depends_on:
+      - mongodb-write
+      - mongodb-read
+      - rabbitmq
+
+  mongodb-write:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_write_data:/data/db
+
+  mongodb-read:
+    image: mongo:6
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_read_data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  mongodb_write_data:
+  mongodb_read_data:
+  rabbitmq_data:
